@@ -10,7 +10,7 @@ def perform_http_request(url):
 
         if req.status_code == 200:
             print(req.status_code)
-            print("CC - Yêu cầu thành công!")
+            print("CC")
             req.encoding = 'utf-8'
             print(req.text)
         else:
