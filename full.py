@@ -15,7 +15,7 @@ def perform_http_request(url):
             print(req.text)
         else:
             print(req.status_code)
-            print("TTT - Yêu cầu thất bại!")
+            print("TTT")
     except requests.exceptions.RequestException as e:
         print("Lỗi khi thực hiện yêu cầu:", e)
 
