@@ -1,102 +1,46 @@
-import argparse
-import requests
-import sys
+#!/usr/bin/python3
+from knock import KNOCKPY
+from concurrent.futures import ThreadPoolExecutor
 import os
 
-def Scan(url, wordlist):
-    # if not url.startswith("http://") and not url.startswith("https://"):
-    #     url = "https://" + url
+def create_chunks(buffer, num_parts):
+    chunk_size = len(buffer) // num_parts
+    chunks = [buffer[i:i + chunk_size] for i in range(0, len(buffer), chunk_size)]
+    if len(buffer) % num_parts != 0:  # Add remaining part
+        chunks[-1] += buffer[num_parts * chunk_size:]
+    return chunks
 
-    # # Đọc wordlist
-    # try:
-    #     with open(wordlist, "r") as file:
-    #         subdomains = file.readlines()
-    # except FileNotFoundError:
-    #     print(f"Không tìm thấy file wordlist: {wordlist}")
-    #     return
-
-    # for subdomain in subdomains:
-    #     subdomain = subdomain.strip()  # loại bỏ khoảng trắng thừa và ký tự newline
-    #     full_url = f"{url}/{subdomain}"
-    #     try:
-    #         req = requests.get(full_url)
-
-    #         if req.status_code == 200:
-    #             print(f"[+] {full_url} - {req.status_code} OK")
-    #             req.encoding = 'utf-8'
-    #             print(req.text[:200])  # In ra 200 ký tự đầu tiên của nội dung trả về
-    #         else:
-    #             print(f"[-] {full_url} - {req.status_code}")
-    #     except requests.exceptions.RequestException as e:
-    #         print(f"Lỗi khi thực hiện yêu cầu với {full_url}: {e}")
-    discovered = []  
+def bruteforce(domain, file_content, num):
+    print(f"Thread_{num} started...")
     try:
-        with open(wordlist, 'r') as file:
-            subdomains = file.read().splitlines()
-        
-        for subdomain in subdomains:
-            url = "https://{}.{}".format(subdomain, url)
-            try:
-                print("T")
-                response = requests.get(url)
-                if response.status_code == 200:
-                    discovered.append(url)
-            except requests.exceptions.RequestException:
-                pass
-    
-    except FileNotFoundError:
-        print(f"Không tìm thấy file wordlist: {wordlist}")
-    return discovered
+        results = KNOCKPY(domain, dns=None, useragent=None, timeout=None, threads=None, recon=True, bruteforce=True, wordlist=file_content.splitlines())
+        with open(f"result_{num}.txt", "w") as f:
+            f.write(str(results))
+        print(f"Thread_{num} completed.")
+    except Exception as e:
+        print(f"Thread_{num} encountered an error: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Subdomain Scanner Tool - A simple subdomain brute-force tool with HTTP request support."
-    )
+    domain = 'google.com'
+    file_path = "wordlist.txt"
+    
+    # Read the wordlist
+    with open(file_path, "r") as f:
+        buffer = f.read()
 
-    # Options
-    parser.add_argument("--version", action="version", version="1.0", help="Show program's version number and exit")
-    parser.add_argument("-f", metavar="FILE", type=str, default="subnames.txt",
-                        help="File contains new line delimited subs, default is subnames.txt.")
-    parser.add_argument("--full", action="store_true",
-                        help="Full scan, NAMES FILE subnames_full.txt will be used to brute.")
-    parser.add_argument("-i", "--ignore-intranet", action="store_true",
-                        help="Ignore domains pointed to private IPs.")
-    parser.add_argument("-w", "--wordlist", type=str, default="wordlist.txt",
-                        help="Path to the wordlist file for subdomain scanning. Default is wordlist.txt.")
-    parser.add_argument("-t", "--threads", type=int, default=500,
-                        help="Number of scan threads, 500 by default.")
-    parser.add_argument("-p", "--process", type=int, default=6,
-                        help="Number of scan processes, 6 by default.")
-    parser.add_argument("--no-https", action="store_true",
-                        help="Disable getting domain names from HTTPS cert, saving some time.")
-    parser.add_argument("-o", "--output", type=str,
-                        help="Output file name, default is {target}.txt.")
-    parser.add_argument("-u", type=str, required=True,
-                        help="Send HTTP GET request to the specified URL.")
-    parser.add_argument("target", metavar="target.com", type=str, nargs="?",
-                        help="Target domain to scan for subdomains.")
+    # Split the buffer into 8 parts
+    num_parts = 8
+    buf_chunks = create_chunks(buffer, num_parts)
 
-    args = parser.parse_args()
+    # Write parts to files (optional)
+    for i, chunk in enumerate(buf_chunks):
+        with open(f"part_{i}.txt", "w") as part_file:
+            part_file.write(chunk)
 
-    print("Target Domain:", args.target)
-    print("Options:")
-    print(" - File:", args.f)
-    print(" - Full Scan:", args.full)
-    print(" - Ignore Intranet:", args.ignore_intranet)
-    print(" - Wordlist:", args.wordlist)
-    print(" - Threads:", args.threads)
-    print(" - Processes:", args.process)
-    print(" - No HTTPS:", args.no_https)
-    print(" - Output:", args.output)
-
-    print("Debug: args.url =", args.u)
-
-    if args.u:
-        print("Performing HTTP GET request to:", args.u)
-        # Kiểm tra nếu user cung cấp wordlist, nếu không dùng mặc định
-        wordlist_path = args.wordlist if os.path.exists(args.wordlist) else "wordlist.txt"
-        print("Using wordlist:", wordlist_path)
-        Scan(args.u, wordlist_path)
+    # Start bruteforce using threads
+    with ThreadPoolExecutor(max_workers=num_parts) as executor:
+        for i, chunk in enumerate(buf_chunks):
+            executor.submit(bruteforce, domain, chunk, i)
 
 if __name__ == "__main__":
     main()
