@@ -1,0 +1,7 @@
+ws
+sms
+test
+video
+www2
+media
+stati
