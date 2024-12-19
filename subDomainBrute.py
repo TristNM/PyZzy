@@ -2,6 +2,7 @@
 from knock import KNOCKPY
 from concurrent.futures import ThreadPoolExecutor
 import os
+import argparse
 
 def create_chunks(buffer, num_parts):
     chunk_size = len(buffer) // num_parts
@@ -21,20 +22,35 @@ def bruteforce(domain, file_content, num):
         print(f"Thread_{num} encountered an error: {e}")
 
 def main():
-    domain = 'google.com'
-    file_path = "wordlist.txt"
-    
+    # Set up argparse
+    parser = argparse.ArgumentParser(description="Bruteforce subdomains using KNOCKPY")
+    parser.add_argument("-u", "--domain", required=True, help="Target domain for bruteforce")
+    parser.add_argument("-w", "--wordlist", required=True, help="Path to the wordlist file")
+    parser.add_argument("-t", "--threads", type=int, default=8, help="Number of threads to use (default: 8)")
+    parser.add_argument("-o", "--output", default="results", help="Output directory for results (default: ./results)")
+
+    args = parser.parse_args()
+
+    # Parse arguments
+    domain = args.domain
+    file_path = args.wordlist
+    num_parts = args.threads
+    output_dir = args.output
+
+    # Create output directory if not exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Read the wordlist
     with open(file_path, "r") as f:
         buffer = f.read()
 
-    # Split the buffer into 8 parts
-    num_parts = 8
+    # Split the buffer into parts
     buf_chunks = create_chunks(buffer, num_parts)
 
     # Write parts to files (optional)
     for i, chunk in enumerate(buf_chunks):
-        with open(f"part_{i}.txt", "w") as part_file:
+        with open(os.path.join(output_dir, f"part_{i}.txt"), "w") as part_file:
             part_file.write(chunk)
 
     # Start bruteforce using threads
